@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build": "expo export:web",
+    "vercel-build": "expo export:web"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "^7.8.1",
@@ -14,6 +16,7 @@
     "@react-navigation/stack": "^7.6.2",
     "@stripe/stripe-js": "^8.3.0",
     "@supabase/supabase-js": "^2.79.0",
+    "stripe": "^17.3.0",
     "axios": "^1.13.2",
     "babel-preset-expo": "~54.0.0",
     "dotenv": "^17.2.3",

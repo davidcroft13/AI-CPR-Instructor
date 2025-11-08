@@ -23,9 +23,13 @@ export default async function handler(req, res) {
   let event;
 
   try {
+    // Get raw body for webhook signature verification
+    // Vercel automatically provides req.body as a buffer for webhooks
+    const body = typeof req.body === 'string' ? Buffer.from(req.body) : req.body;
+    
     // Verify webhook signature
     event = stripe.webhooks.constructEvent(
-      req.body,
+      body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
