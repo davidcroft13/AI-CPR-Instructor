@@ -40,7 +40,7 @@ The project is already configured with:
 
 **Build Command:** 
 ```
-npx expo export:web
+npx expo export --platform web --output-dir web-build
 ```
 
 **Output Directory:** 
