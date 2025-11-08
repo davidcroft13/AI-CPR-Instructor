@@ -15,18 +15,40 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
+
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check for required environment variables
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('STRIPE_SECRET_KEY is not set');
+    return res.status(500).json({ error: 'Server configuration error: Stripe key missing' });
+  }
+
   try {
     const { paymentType, amount, userEmail, userName, teamId, successUrl, cancelUrl } = req.body;
+
+    console.log('Received payment request:', { paymentType, amount, userEmail, userName, teamId });
 
     if (!paymentType || !amount || !userEmail || !userName) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Create Stripe Checkout Session
+    console.log('Creating Stripe checkout session...');
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -57,6 +79,8 @@ export default async function handler(req, res) {
       },
     });
 
+    console.log('Stripe session created successfully:', session.id);
+
     // Create pending payment record in database
     // Note: This requires the user to exist first, so for signup flow,
     // we'll create the payment record after account creation
@@ -65,7 +89,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ sessionId: session.id });
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    return res.status(500).json({ error: error.message || 'Failed to create checkout session' });
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ 
+      error: error.message || 'Failed to create checkout session',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }
 

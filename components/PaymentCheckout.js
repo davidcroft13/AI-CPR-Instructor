@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { getStripe, redirectToCheckout, createCheckoutSession, PAYMENT_AMOUNTS } from '../lib/stripe';
 import { CreditCard, Lock, Check } from 'lucide-react-native';
@@ -30,6 +30,9 @@ export default function PaymentCheckout({
         ? window.location.origin 
         : 'http://localhost:19006';
 
+      console.log('Starting payment flow with baseUrl:', baseUrl);
+      console.log('Payment details:', { paymentType, amount, userEmail, userName, teamId });
+
       // Create checkout session
       const sessionId = await createCheckoutSession({
         paymentType,
@@ -41,10 +44,16 @@ export default function PaymentCheckout({
         cancelUrl: `${baseUrl}/payment-cancel`,
       });
 
+      console.log('Checkout session created:', sessionId);
+
       // Redirect to Stripe Checkout
       await redirectToCheckout(sessionId);
     } catch (error) {
       console.error('Payment error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
       Alert.alert(
         'Payment Error',
         error.message || 'Failed to process payment. Please try again.',
