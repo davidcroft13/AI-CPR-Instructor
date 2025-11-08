@@ -6,39 +6,46 @@
 // - SUPABASE_URL: Your Supabase project URL
 // - SUPABASE_SERVICE_ROLE_KEY: Your Supabase service role key
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
 export default async function handler(req, res) {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
+  try {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      return res.status(200).end();
+    }
+
+    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  }
 
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    // Check for required environment variables
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY is not set');
+      return res.status(500).json({ error: 'Server configuration error: Stripe key missing' });
+    }
 
-  // Check for required environment variables
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error('STRIPE_SECRET_KEY is not set');
-    return res.status(500).json({ error: 'Server configuration error: Stripe key missing' });
-  }
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Supabase credentials not set');
+      return res.status(500).json({ error: 'Server configuration error: Supabase credentials missing' });
+    }
 
-  try {
     const { paymentType, amount, userEmail, userName, teamId, successUrl, cancelUrl } = req.body;
 
     console.log('Received payment request:', { paymentType, amount, userEmail, userName, teamId });
@@ -88,7 +95,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ sessionId: session.id });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error in handler:', error);
     console.error('Error stack:', error.stack);
     return res.status(500).json({ 
       error: error.message || 'Failed to create checkout session',
