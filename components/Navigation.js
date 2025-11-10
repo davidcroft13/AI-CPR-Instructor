@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -87,10 +87,10 @@ function MainStack() {
 
 export default function Navigation() {
   const { user, loading } = useAuth();
-  const navigationRef = React.useRef(null);
+  const navigationRef = useRef(null);
 
   // Check if user is returning from email verification and needs to complete signup
-  React.useEffect(() => {
+  useEffect(() => {
     if (user && Platform.OS === 'web' && typeof window !== 'undefined' && navigationRef.current) {
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
