@@ -33,19 +33,54 @@ export default function SignUp() {
     const checkEmailVerification = async () => {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('verified') === 'true' || urlParams.get('type') === 'signup') {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        // Check for verification callback in URL params or hash
+        if (urlParams.get('verified') === 'true' || urlParams.get('type') === 'signup' || hashParams.get('type') === 'signup') {
           // User returned from email verification
-          setShowEmailVerification(true);
-          // Try to get the email from URL hash or check session
           const { data: { session } } = await supabase.auth.getSession();
+          
           if (session?.user?.email) {
+            // Try to restore signup data from localStorage
+            const storedSignupData = localStorage.getItem('pendingSignup');
+            if (storedSignupData) {
+              try {
+                const parsed = JSON.parse(storedSignupData);
+                setName(parsed.name || '');
+                setEmail(parsed.email || session.user.email);
+                setPassword(parsed.password || '');
+                setSignupType(parsed.signupType || 'solo');
+                setTeamName(parsed.teamName || '');
+                setInviteCode(parsed.inviteCode || '');
+                setTeamIdFromInvite(parsed.teamId || null);
+              } catch (e) {
+                console.error('Error parsing stored signup data:', e);
+              }
+            }
+            
             setPendingEmail(session.user.email);
-            setEmailVerified(true);
             setAccountCreated(true);
-            // Auto-check verification status
-            setTimeout(() => {
-              verifyEmailAndContinue(session.user.email, password, name, signupType, teamName, inviteCode, teamIdFromInvite);
-            }, 1000);
+            setShowEmailVerification(true);
+            
+            // Auto-check verification and proceed to payment
+            setTimeout(async () => {
+              const storedData = localStorage.getItem('pendingSignup');
+              if (storedData) {
+                const parsed = JSON.parse(storedData);
+                const verified = await verifyEmailAndContinue(
+                  session.user.email,
+                  parsed.password,
+                  parsed.name,
+                  parsed.signupType,
+                  parsed.teamName,
+                  parsed.inviteCode,
+                  parsed.teamId
+                );
+                if (verified) {
+                  localStorage.removeItem('pendingSignup');
+                }
+              }
+            }, 1500);
           }
         }
       }
@@ -128,6 +163,20 @@ export default function SignUp() {
           // Email confirmation required - show verification screen
           setPendingEmail(email);
           setShowEmailVerification(true);
+          
+          // Store signup data in localStorage so we can restore it after email verification
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            localStorage.setItem('pendingSignup', JSON.stringify({
+              name,
+              email,
+              password,
+              signupType: inviteCode ? 'team_member' : signupType,
+              teamName,
+              inviteCode,
+              teamId,
+            }));
+          }
+          
           setLoading(false);
           return;
         } else if (data.session) {

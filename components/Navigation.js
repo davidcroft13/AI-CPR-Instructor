@@ -66,6 +66,21 @@ function MainStack() {
         component={LessonDetail}
         options={{ headerShown: false }}
       />
+      <Stack.Screen 
+        name="SignUp" 
+        component={SignUp}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="PaymentSuccess" 
+        component={PaymentSuccess}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="PaymentCancel" 
+        component={PaymentCancel}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
