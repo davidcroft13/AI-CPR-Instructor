@@ -162,6 +162,7 @@ export default function SignUp() {
       Alert.alert('Error', error.message || 'Failed to verify email');
     } finally {
       setLoading(false);
+    }
   };
 
   const resendVerificationEmail = async (email) => {
