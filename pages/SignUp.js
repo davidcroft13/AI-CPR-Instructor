@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import PaymentCheckout from '../components/PaymentCheckout';
-import { ArrowLeft, Mail, Lock, User, Users, CreditCard } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, User, Users, CreditCard, CheckCircle, RefreshCw } from 'lucide-react-native';
 
 export default function SignUp() {
   const navigation = useNavigation();
@@ -20,10 +20,38 @@ export default function SignUp() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [signupData, setSignupData] = useState(null);
   const [teamIdFromInvite, setTeamIdFromInvite] = useState(null);
   const [emailVerified, setEmailVerified] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [checkingVerification, setCheckingVerification] = useState(false);
+
+  // Check if user is returning from email verification
+  useEffect(() => {
+    const checkEmailVerification = async () => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('verified') === 'true' || urlParams.get('type') === 'signup') {
+          // User returned from email verification
+          setShowEmailVerification(true);
+          // Try to get the email from URL hash or check session
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.email) {
+            setPendingEmail(session.user.email);
+            setEmailVerified(true);
+            setAccountCreated(true);
+            // Auto-check verification status
+            setTimeout(() => {
+              verifyEmailAndContinue(session.user.email, password, name, signupType, teamName, inviteCode, teamIdFromInvite);
+            }, 1000);
+          }
+        }
+      }
+    };
+    checkEmailVerification();
+  }, []);
 
   const handleContinueToPayment = async () => {
     if (!name || !email || !password) {
@@ -68,12 +96,26 @@ export default function SignUp() {
     if (!accountCreated) {
       setLoading(true);
       try {
-        const { data, error } = await signUp(email, password, { name });
+        // Get the correct redirect URL for email verification
+        // Use the actual site URL, not localhost
+        const redirectUrl = typeof window !== 'undefined' 
+          ? `${window.location.origin}/signup?verified=true&email=${encodeURIComponent(email)}`
+          : (process.env.EXPO_PUBLIC_BASE_URL || 'https://ai-cpr-instructor.vercel.app') + '/signup?verified=true';
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name },
+            emailRedirectTo: redirectUrl,
+          },
+        });
         
         if (error) {
           // If user already exists, check if email is verified
           if (error.message.includes('already registered')) {
             Alert.alert('Error', 'An account with this email already exists. Please sign in instead.');
+            setLoading(false);
             return;
           }
           throw error;
@@ -83,21 +125,9 @@ export default function SignUp() {
         
         // Check if email confirmation is required
         if (data.user && !data.session) {
-          // Email confirmation required
-          Alert.alert(
-            'Email Verification Required',
-            'We\'ve sent a verification email to ' + email + '. Please check your inbox and click the verification link before proceeding with payment.',
-            [
-              {
-                text: 'I\'ve verified my email',
-                onPress: () => verifyEmailAndContinue(email, password, name, signupType, teamName, inviteCode, teamId)
-              },
-              {
-                text: 'Resend Email',
-                onPress: () => resendVerificationEmail(email)
-              }
-            ]
-          );
+          // Email confirmation required - show verification screen
+          setPendingEmail(email);
+          setShowEmailVerification(true);
           setLoading(false);
           return;
         } else if (data.session) {
@@ -125,20 +155,19 @@ export default function SignUp() {
     setShowPayment(true);
   };
 
-  const verifyEmailAndContinue = async (email, password, name, signupType, teamName, inviteCode, teamId) => {
-    setLoading(true);
+  const verifyEmailAndContinue = async (emailToVerify, passwordToVerify, nameToVerify, signupTypeToVerify, teamNameToVerify, inviteCodeToVerify, teamIdToVerify) => {
+    setCheckingVerification(true);
     try {
       // Try to sign in to verify email was confirmed
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: emailToVerify || email,
+        password: passwordToVerify || password,
       });
 
       if (error) {
-        if (error.message.includes('Email not confirmed')) {
-          Alert.alert('Email Not Verified', 'Please check your email and click the verification link.');
-          setLoading(false);
-          return;
+        if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
+          setCheckingVerification(false);
+          return false; // Email not verified yet
         }
         throw error;
       }
@@ -146,30 +175,40 @@ export default function SignUp() {
       if (data.session) {
         setEmailVerified(true);
         setAccountCreated(true);
+        setShowEmailVerification(false);
         // Continue to payment
         setSignupData({
-          name,
-          email,
-          password,
-          signupType: inviteCode ? 'team_member' : signupType,
-          teamName,
-          inviteCode,
-          teamId,
+          name: nameToVerify || name,
+          email: emailToVerify || email,
+          password: passwordToVerify || password,
+          signupType: inviteCodeToVerify ? 'team_member' : (signupTypeToVerify || signupType),
+          teamName: teamNameToVerify || teamName,
+          inviteCode: inviteCodeToVerify || inviteCode,
+          teamId: teamIdToVerify || teamIdFromInvite,
         });
         setShowPayment(true);
+        setCheckingVerification(false);
+        return true;
       }
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to verify email');
-    } finally {
-      setLoading(false);
+      setCheckingVerification(false);
+      return false;
     }
+    setCheckingVerification(false);
+    return false;
   };
 
-  const resendVerificationEmail = async (email) => {
+  const resendVerificationEmail = async (emailToResend) => {
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email,
+        email: emailToResend || email,
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' 
+            ? `${window.location.origin}/signup?verified=true&email=${encodeURIComponent(emailToResend || email)}`
+            : (process.env.EXPO_PUBLIC_BASE_URL || 'https://ai-cpr-instructor.vercel.app') + '/signup?verified=true',
+        },
       });
 
       if (error) throw error;
@@ -302,8 +341,67 @@ export default function SignUp() {
 
   const handleBack = () => {
     setShowPayment(false);
+    setShowEmailVerification(false);
     setSignupData(null);
   };
+
+  // Email Verification Screen
+  if (showEmailVerification) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          <TouchableOpacity
+            onPress={handleBack}
+            style={styles.backButton}
+          >
+            <ArrowLeft size={24} color={isDark ? '#cbd5e1' : '#374151'} />
+          </TouchableOpacity>
+
+          <View style={styles.verificationContainer}>
+            <Mail size={64} color="#2563eb" />
+            <Text style={styles.verificationTitle}>Check Your Email</Text>
+            <Text style={styles.verificationText}>
+              We've sent a verification email to:
+            </Text>
+            <Text style={styles.verificationEmail}>{pendingEmail || email}</Text>
+            <Text style={styles.verificationInstructions}>
+              Please check your inbox and click the verification link to continue.
+            </Text>
+            <Text style={styles.verificationNote}>
+              After clicking the link, you'll be redirected back here to complete your payment.
+            </Text>
+
+            <View style={styles.verificationActions}>
+              <TouchableOpacity
+                onPress={() => verifyEmailAndContinue(email, password, name, signupType, teamName, inviteCode, teamIdFromInvite)}
+                style={styles.verifyButton}
+                disabled={checkingVerification}
+              >
+                {checkingVerification ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <>
+                    <RefreshCw size={20} color="#ffffff" />
+                    <View style={{ width: 8 }} />
+                    <Text style={styles.verifyButtonText}>I've Verified My Email</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => resendVerificationEmail(pendingEmail || email)}
+                style={styles.resendButton}
+              >
+                <Mail size={20} color={isDark ? '#cbd5e1' : '#4b5563'} />
+                <View style={{ width: 8 }} />
+                <Text style={styles.resendButtonText}>Resend Verification Email</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   if (showPayment && signupData) {
     return (
@@ -635,5 +733,80 @@ const getStyles = (isDark) => StyleSheet.create({
     color: isDark ? '#94a3b8' : '#6b7280',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  verificationContainer: {
+    alignItems: 'center',
+    padding: 32,
+    marginTop: 40,
+  },
+  verificationTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: isDark ? '#ffffff' : '#111827',
+    marginTop: 24,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  verificationText: {
+    fontSize: 16,
+    color: isDark ? '#cbd5e1' : '#4b5563',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  verificationEmail: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2563eb',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  verificationInstructions: {
+    fontSize: 16,
+    color: isDark ? '#cbd5e1' : '#4b5563',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  verificationNote: {
+    fontSize: 14,
+    color: isDark ? '#94a3b8' : '#6b7280',
+    textAlign: 'center',
+    marginBottom: 32,
+    fontStyle: 'italic',
+  },
+  verificationActions: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  verifyButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  verifyButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  resendButton: {
+    backgroundColor: isDark ? '#1e293b' : '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: isDark ? '#334155' : '#e5e7eb',
+  },
+  resendButtonText: {
+    color: isDark ? '#cbd5e1' : '#4b5563',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
