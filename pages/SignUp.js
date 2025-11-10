@@ -188,12 +188,8 @@ export default function SignUp() {
 
     setLoading(true);
     try {
-      const { data, error } = await signUp(signupData.email, signupData.password, { name: signupData.name });
-      
-      if (error) throw error;
-
-      // Get current user from session
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get current user from session (account should already be created)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
         // If no user, try to sign in (user may have verified email)
