@@ -113,13 +113,17 @@ module.exports = async function handler(req, res) {
     });
 
     console.log('Stripe session created successfully:', session.id);
+    console.log('Checkout URL:', session.url);
 
     // Create pending payment record in database
     // Note: This requires the user to exist first, so for signup flow,
     // we'll create the payment record after account creation
     // For team member payments, the user should already exist
 
-    return res.status(200).json({ sessionId: session.id });
+    return res.status(200).json({ 
+      sessionId: session.id,
+      url: session.url // Return the checkout URL for direct redirect
+    });
   } catch (error) {
     console.error('Error in handler:', error);
     console.error('Error name:', error.name);

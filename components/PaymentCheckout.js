@@ -34,7 +34,7 @@ export default function PaymentCheckout({
       console.log('Payment details:', { paymentType, amount, userEmail, userName, teamId });
 
       // Create checkout session
-      const sessionId = await createCheckoutSession({
+      const checkoutData = await createCheckoutSession({
         paymentType,
         amount,
         userEmail,
@@ -44,10 +44,10 @@ export default function PaymentCheckout({
         cancelUrl: `${baseUrl}/payment-cancel`,
       });
 
-      console.log('Checkout session created:', sessionId);
+      console.log('Checkout session created:', checkoutData);
 
-      // Redirect to Stripe Checkout
-      await redirectToCheckout(sessionId);
+      // Redirect to Stripe Checkout using the URL directly
+      await redirectToCheckout(checkoutData);
     } catch (error) {
       console.error('Payment error:', error);
       console.error('Error details:', {
