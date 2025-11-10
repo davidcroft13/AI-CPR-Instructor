@@ -22,6 +22,8 @@ export default function SignUp() {
   const [showPayment, setShowPayment] = useState(false);
   const [signupData, setSignupData] = useState(null);
   const [teamIdFromInvite, setTeamIdFromInvite] = useState(null);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   const handleContinueToPayment = async () => {
     if (!name || !email || !password) {
@@ -62,6 +64,54 @@ export default function SignUp() {
       }
     }
 
+    // Create account first and send verification email
+    if (!accountCreated) {
+      setLoading(true);
+      try {
+        const { data, error } = await signUp(email, password, { name });
+        
+        if (error) {
+          // If user already exists, check if email is verified
+          if (error.message.includes('already registered')) {
+            Alert.alert('Error', 'An account with this email already exists. Please sign in instead.');
+            return;
+          }
+          throw error;
+        }
+
+        setAccountCreated(true);
+        
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          // Email confirmation required
+          Alert.alert(
+            'Email Verification Required',
+            'We\'ve sent a verification email to ' + email + '. Please check your inbox and click the verification link before proceeding with payment.',
+            [
+              {
+                text: 'I\'ve verified my email',
+                onPress: () => verifyEmailAndContinue(email, password, name, signupType, teamName, inviteCode, teamId)
+              },
+              {
+                text: 'Resend Email',
+                onPress: () => resendVerificationEmail(email)
+              }
+            ]
+          );
+          setLoading(false);
+          return;
+        } else if (data.session) {
+          // Email confirmation not required (or already verified)
+          setEmailVerified(true);
+        }
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+
     // Store signup data for after payment
     setSignupData({
       name,
@@ -73,6 +123,60 @@ export default function SignUp() {
       teamId,
     });
     setShowPayment(true);
+  };
+
+  const verifyEmailAndContinue = async (email, password, name, signupType, teamName, inviteCode, teamId) => {
+    setLoading(true);
+    try {
+      // Try to sign in to verify email was confirmed
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        if (error.message.includes('Email not confirmed')) {
+          Alert.alert('Email Not Verified', 'Please check your email and click the verification link.');
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
+
+      if (data.session) {
+        setEmailVerified(true);
+        setAccountCreated(true);
+        // Continue to payment
+        setSignupData({
+          name,
+          email,
+          password,
+          signupType: inviteCode ? 'team_member' : signupType,
+          teamName,
+          inviteCode,
+          teamId,
+        });
+        setShowPayment(true);
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to verify email');
+    } finally {
+      setLoading(false);
+  };
+
+  const resendVerificationEmail = async (email) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to resend verification email');
+    }
   };
 
   const handlePaymentSuccess = async () => {
@@ -88,8 +192,15 @@ export default function SignUp() {
       
       if (error) throw error;
 
-      // Create user profile and team
-      if (data.user) {
+      // Get current user from session
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not found. Please verify your email and try again.');
+      }
+
+        // Create user profile and team
+        if (finalUser) {
         let teamData;
         
         if (signupData.teamId) {
@@ -131,8 +242,8 @@ export default function SignUp() {
           .from('users')
           .insert([
             {
-              id: data.user.id,
-              email: data.user.email,
+              id: finalUser.id,
+              email: finalUser.email,
               name: signupData.name,
               team_id: teamData.id,
               is_team_owner: signupData.signupType === 'team' && !signupData.teamId,
@@ -147,7 +258,7 @@ export default function SignUp() {
           .from('payments')
           .insert([
             {
-              user_id: data.user.id,
+              user_id: finalUser.id,
               team_id: teamData.id,
               amount: 9900, // $99.00 in cents
               status: 'succeeded',

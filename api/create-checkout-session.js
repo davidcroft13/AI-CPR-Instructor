@@ -9,14 +9,38 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe only if key exists
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  try {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  } catch (error) {
+    console.error('Failed to initialize Stripe:', error);
+  }
+}
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+// Initialize Supabase only if credentials exist
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  try {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  } catch (error) {
+    console.error('Failed to initialize Supabase:', error);
+  }
+}
 
 module.exports = async function handler(req, res) {
+  // Ensure we always return JSON, even on errors
+  const sendError = (status, message, details = null) => {
+    res.status(status).json({ 
+      error: message,
+      ...(details && { details })
+    });
+  };
+
   try {
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
@@ -36,14 +60,14 @@ module.exports = async function handler(req, res) {
     }
 
     // Check for required environment variables
-    if (!process.env.STRIPE_SECRET_KEY) {
-      console.error('STRIPE_SECRET_KEY is not set');
-      return res.status(500).json({ error: 'Server configuration error: Stripe key missing' });
+    if (!stripe) {
+      console.error('STRIPE_SECRET_KEY is not set or invalid');
+      return sendError(500, 'Server configuration error: Stripe key missing or invalid');
     }
 
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('Supabase credentials not set');
-      return res.status(500).json({ error: 'Server configuration error: Supabase credentials missing' });
+    if (!supabase) {
+      console.error('Supabase credentials not set or invalid');
+      return sendError(500, 'Server configuration error: Supabase credentials missing or invalid');
     }
 
     const { paymentType, amount, userEmail, userName, teamId, successUrl, cancelUrl } = req.body;
@@ -51,7 +75,9 @@ module.exports = async function handler(req, res) {
     console.log('Received payment request:', { paymentType, amount, userEmail, userName, teamId });
 
     if (!paymentType || !amount || !userEmail || !userName) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return sendError(400, 'Missing required fields', {
+        received: { paymentType, amount, userEmail, userName }
+      });
     }
 
     // Create Stripe Checkout Session
@@ -96,10 +122,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ sessionId: session.id });
   } catch (error) {
     console.error('Error in handler:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    return res.status(500).json({ 
-      error: error.message || 'Failed to create checkout session',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    
+    // Ensure we always return JSON
+    return sendError(500, error.message || 'Failed to create checkout session', {
+      type: error.name || 'UnknownError',
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
 }
