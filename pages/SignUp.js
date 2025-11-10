@@ -195,12 +195,32 @@ export default function SignUp() {
       // Get current user from session
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user) {
-        throw new Error('User not found. Please verify your email and try again.');
+      if (userError || !user) {
+        // If no user, try to sign in (user may have verified email)
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: signupData.email,
+          password: signupData.password,
+        });
+        
+        if (error) {
+          if (error.message.includes('Email not confirmed')) {
+            throw new Error('Please verify your email before completing payment');
+          }
+          throw error;
+        }
+        
+        if (!data.user) {
+          throw new Error('User not found. Please verify your email and try again.');
+        }
+        
+        // Use the signed-in user
+        var finalUser = data.user;
+      } else {
+        var finalUser = user;
       }
 
-        // Create user profile and team
-        if (finalUser) {
+      // Create user profile and team
+      if (finalUser) {
         let teamData;
         
         if (signupData.teamId) {
@@ -271,13 +291,10 @@ export default function SignUp() {
           // Don't fail the signup if payment record fails
         }
 
-        // Check if user is already logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // User is logged in, navigation will happen automatically via AuthContext
-        } else {
-          Alert.alert('Success', 'Account created! Please check your email to verify your account.');
-        }
+        // User is logged in, navigation will happen automatically via AuthContext
+        Alert.alert('Success', 'Account setup complete! Welcome to CPR AI Trainer.');
+      } else {
+        throw new Error('Failed to get user information');
       }
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to create account');
