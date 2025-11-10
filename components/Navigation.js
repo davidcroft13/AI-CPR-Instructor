@@ -87,6 +87,25 @@ function MainStack() {
 
 export default function Navigation() {
   const { user, loading } = useAuth();
+  const navigationRef = React.useRef(null);
+
+  // Check if user is returning from email verification and needs to complete signup
+  React.useEffect(() => {
+    if (user && Platform.OS === 'web' && typeof window !== 'undefined' && navigationRef.current) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      // If user is authenticated and has verification params, navigate to signup
+      if (urlParams.get('verified') === 'true' || urlParams.get('type') === 'signup' || hashParams.get('type') === 'signup') {
+        // Check if there's pending signup data
+        const pendingSignup = localStorage.getItem('pendingSignup');
+        if (pendingSignup) {
+          // Navigate to signup page to complete payment flow
+          navigationRef.current.navigate('SignUp');
+        }
+      }
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -115,7 +134,10 @@ export default function Navigation() {
   };
 
   return (
-    <NavigationContainer linking={Platform.OS === 'web' ? linking : undefined}>
+    <NavigationContainer 
+      ref={navigationRef}
+      linking={Platform.OS === 'web' ? linking : undefined}
+    >
       {user ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );
