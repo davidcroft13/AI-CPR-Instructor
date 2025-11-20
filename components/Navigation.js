@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { View, Text, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -88,6 +88,13 @@ function MainStack() {
 export default function Navigation() {
   const { user, loading } = useAuth();
   const navigationRef = useRef(null);
+  const isWeb = Platform.OS === 'web' && typeof window !== 'undefined';
+
+  const publicRoutes = useMemo(() => ['/', '/login', '/signup', '/forgot-password', '/payment-success', '/payment-cancel'], []);
+  const normalizedPath = isWeb
+    ? (window.location.pathname.replace(/\/+$/, '') || '/')
+    : '/';
+  const onPublicRoute = isWeb ? publicRoutes.includes(normalizedPath) : false;
 
   // Check if user is returning from email verification and needs to complete signup
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function Navigation() {
       ref={navigationRef}
       linking={Platform.OS === 'web' ? linking : undefined}
     >
-      {user ? <MainStack /> : <AuthStack />}
+      {!user || onPublicRoute ? <AuthStack /> : <MainStack />}
     </NavigationContainer>
   );
 }

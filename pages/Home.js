@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Play, ArrowRight, Check, Zap, Users, Award, Brain, Shield, Clock, Target, MessageSquare, Sun, Moon } from 'lucide-react-native';
 import { useHover } from '../hooks/useHover';
 
 export default function Home() {
   const navigation = useNavigation();
   const { isDark, themePreference, toggleTheme } = useTheme();
+  const { user } = useAuth();
   const styles = getStyles(isDark);
   const [isPlaying, setIsPlaying] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState(null);
@@ -67,6 +69,14 @@ export default function Home() {
     'https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=900&q=80',
   ];
 
+  const handlePrimaryAction = () => {
+    if (user) {
+      navigation.navigate('Dashboard');
+    } else {
+      navigation.navigate('SignUp');
+    }
+  };
+
   const handlePlaySample = () => {
     setIsPlaying(!isPlaying);
     // TODO: Implement 11Labs voice sample playback
@@ -97,7 +107,7 @@ export default function Home() {
                     </TouchableOpacity>
                     <View style={{ width: 12 }} />
                     <TouchableOpacity
-                      onPress={() => navigation.navigate('SignUp')}
+                      onPress={handlePrimaryAction}
                       style={[styles.signUpButton, signUpHovered && styles.buttonHoverElevated]}
                       {...signUpHoverHandlers}
                     >
@@ -125,7 +135,7 @@ export default function Home() {
             
             <View style={styles.heroButtons}>
               <TouchableOpacity
-                onPress={() => navigation.navigate('SignUp')}
+                onPress={handlePrimaryAction}
                 style={[styles.primaryButton, primaryHovered && styles.buttonHoverElevated]}
                 {...primaryHoverHandlers}
               >
@@ -477,7 +487,7 @@ export default function Home() {
           Secure payment processing via Stripe. Start your training today.
         </Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate('SignUp')}
+          onPress={handlePrimaryAction}
           style={[styles.ctaButton, ctaHovered && styles.ctaButtonHover]}
           {...ctaHoverHandlers}
         >
