@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 import { Play, ArrowRight, Check, Zap, Users, Award, Brain, Shield, Clock, Target, MessageSquare, Sun, Moon } from 'lucide-react-native';
+import { useHover } from '../hooks/useHover';
 
 export default function Home() {
   const navigation = useNavigation();
@@ -11,6 +12,60 @@ export default function Home() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [expandedFeature, setExpandedFeature] = useState(null);
   const [expandedOffer, setExpandedOffer] = useState(null);
+  const [hoveredOfferCard, setHoveredOfferCard] = useState(null);
+  const [hoveredFeatureCard, setHoveredFeatureCard] = useState(null);
+  const [signUpHovered, signUpHoverHandlers] = useHover();
+  const [primaryHovered, primaryHoverHandlers] = useHover();
+  const [secondaryHovered, secondaryHoverHandlers] = useHover();
+  const [ctaHovered, ctaHoverHandlers] = useHover();
+  const heroFloat = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(heroFloat, {
+          toValue: 1,
+          duration: 3200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroFloat, {
+          toValue: 0,
+          duration: 3200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [heroFloat]);
+
+  const heroVisualStyle = {
+    transform: [
+      {
+        translateY: heroFloat.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -12],
+        }),
+      },
+      {
+        scale: heroFloat.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.02],
+        }),
+      },
+    ],
+  };
+
+  const heroGlowOpacity = heroFloat.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.65],
+  });
+
+  const galleryImages = [
+    'https://images.unsplash.com/photo-1526256262350-7da7584cf5eb?auto=format&fit=crop&w=900&q=80',
+    'https://images.unsplash.com/photo-1519494080410-f9aa76cb4283?auto=format&fit=crop&w=900&q=80',
+    'https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=900&q=80',
+  ];
 
   const handlePlaySample = () => {
     setIsPlaying(!isPlaying);
@@ -43,7 +98,8 @@ export default function Home() {
                     <View style={{ width: 12 }} />
                     <TouchableOpacity
                       onPress={() => navigation.navigate('SignUp')}
-                      style={styles.signUpButton}
+                      style={[styles.signUpButton, signUpHovered && styles.buttonHoverElevated]}
+                      {...signUpHoverHandlers}
                     >
                       <Text style={styles.signUpButtonText}>Get Started</Text>
                     </TouchableOpacity>
@@ -53,55 +109,97 @@ export default function Home() {
 
       {/* Hero Section */}
       <View style={styles.hero}>
+        <View style={styles.heroBackdrop} />
+        <Animated.View style={[styles.heroGlow, { opacity: heroGlowOpacity }]} />
         <View style={styles.heroContent}>
-          <Text style={styles.heroTitle}>
-            Master CPR Through{'\n'}
-            <Text style={styles.heroTitleAccent}>AI-Powered Voice Training</Text>
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Experience lifelike emergency scenarios with conversational AI. 
-            Practice life-saving skills in a safe, realistic environment powered by advanced voice technology from 11Labs.
-          </Text>
-          
-          <View style={styles.heroButtons}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('SignUp')}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryButtonText}>Start Training</Text>
-              <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
-            <View style={{ width: 16 }} />
-            <TouchableOpacity
-              onPress={handlePlaySample}
-              style={styles.secondaryButton}
-            >
-              <Play size={20} color={isDark ? '#fff' : '#2563eb'} />
-              <Text style={styles.secondaryButtonText}>Listen to Demo</Text>
-            </TouchableOpacity>
+          <View style={styles.heroTextColumn}>
+            <Text style={styles.heroEyebrow}>Immersive CPR Training Platform</Text>
+            <Text style={styles.heroTitle}>
+              Master CPR Through{'\n'}
+              <Text style={styles.heroTitleAccent}>AI-Powered Voice Training</Text>
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              Experience lifelike emergency scenarios with conversational AI. 
+              Practice life-saving skills in a safe, realistic environment powered by advanced voice technology from 11Labs.
+            </Text>
+            
+            <View style={styles.heroButtons}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignUp')}
+                style={[styles.primaryButton, primaryHovered && styles.buttonHoverElevated]}
+                {...primaryHoverHandlers}
+              >
+                <Text style={styles.primaryButtonText}>Start Training</Text>
+                <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+              <View style={{ width: 16 }} />
+              <TouchableOpacity
+                onPress={handlePlaySample}
+                style={[styles.secondaryButton, secondaryHovered && styles.secondaryButtonHover]}
+                {...secondaryHoverHandlers}
+              >
+                <Play size={20} color={isDark ? '#fff' : '#2563eb'} />
+                <Text style={styles.secondaryButtonText}>Listen to Demo</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Trust Indicators */}
+            <View style={styles.trustIndicators}>
+              <View style={styles.trustItem}>
+                <Check size={16} color={isDark ? '#10b981' : '#059669'} />
+                <View style={{ width: 6 }} />
+                <Text style={styles.trustText}>Secure payment via Stripe</Text>
+              </View>
+              <View style={{ width: 24 }} />
+              <View style={styles.trustItem}>
+                <Check size={16} color={isDark ? '#10b981' : '#059669'} />
+                <View style={{ width: 6 }} />
+                <Text style={styles.trustText}>Used by medical teams</Text>
+              </View>
+              <View style={{ width: 24 }} />
+              <View style={styles.trustItem}>
+                <Check size={16} color={isDark ? '#10b981' : '#059669'} />
+                <View style={{ width: 6 }} />
+                <Text style={styles.trustText}>Industry-leading AI technology</Text>
+              </View>
+            </View>
+
+            <View style={styles.heroStatsRow}>
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatValue}>40+</Text>
+                <Text style={styles.heroStatLabel}>Interactive Scenarios</Text>
+              </View>
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatValue}>3 min</Text>
+                <Text style={styles.heroStatLabel}>Average Feedback Time</Text>
+              </View>
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatValue}>11Labs</Text>
+                <Text style={styles.heroStatLabel}>Voice Technology</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Trust Indicators */}
-          <View style={styles.trustIndicators}>
-            <View style={styles.trustItem}>
-              <Check size={16} color={isDark ? '#10b981' : '#059669'} />
-              <View style={{ width: 6 }} />
-              <Text style={styles.trustText}>Secure payment via Stripe</Text>
-            </View>
-            <View style={{ width: 24 }} />
-            <View style={styles.trustItem}>
-              <Check size={16} color={isDark ? '#10b981' : '#059669'} />
-              <View style={{ width: 6 }} />
-              <Text style={styles.trustText}>Used by medical teams</Text>
-            </View>
-            <View style={{ width: 24 }} />
-            <View style={styles.trustItem}>
-              <Check size={16} color={isDark ? '#10b981' : '#059669'} />
-              <View style={{ width: 6 }} />
-              <Text style={styles.trustText}>Industry-leading AI technology</Text>
+          <Animated.View style={[styles.heroVisual, heroVisualStyle]}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=80' }}
+              style={styles.heroImage}
+            />
+            <View style={styles.heroImageOverlay} />
+            <Animated.View style={[styles.heroPulse, { opacity: heroGlowOpacity }]} />
+          </Animated.View>
+        </View>
+      </View>
+
+      <View style={styles.heroGallery}>
+        {galleryImages.map((uri) => (
+          <View key={uri} style={styles.galleryCard}>
+            <Image source={{ uri }} style={styles.galleryImage} />
+            <View style={styles.galleryOverlay}>
+              <Text style={styles.galleryText}>Live training snapshot</Text>
             </View>
           </View>
-        </View>
+        ))}
       </View>
 
       {/* What We Offer Section */}
@@ -113,7 +211,12 @@ export default function Home() {
 
         <View style={styles.offerGrid}>
           <TouchableOpacity
-            style={styles.offerCard}
+            style={[
+              styles.offerCard,
+              hoveredOfferCard === 'conversational' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredOfferCard('conversational')}
+            onMouseLeave={() => setHoveredOfferCard(null)}
             onPress={() => setExpandedOffer(expandedOffer === 'conversational' ? null : 'conversational')}
           >
             <View style={styles.offerHeader}>
@@ -133,7 +236,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.offerCard}
+            style={[
+              styles.offerCard,
+              hoveredOfferCard === 'scenarios' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredOfferCard('scenarios')}
+            onMouseLeave={() => setHoveredOfferCard(null)}
             onPress={() => setExpandedOffer(expandedOffer === 'scenarios' ? null : 'scenarios')}
           >
             <View style={styles.offerHeader}>
@@ -153,7 +261,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.offerCard}
+            style={[
+              styles.offerCard,
+              hoveredOfferCard === 'voice' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredOfferCard('voice')}
+            onMouseLeave={() => setHoveredOfferCard(null)}
             onPress={() => setExpandedOffer(expandedOffer === 'voice' ? null : 'voice')}
           >
             <View style={styles.offerHeader}>
@@ -173,7 +286,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.offerCard}
+            style={[
+              styles.offerCard,
+              hoveredOfferCard === 'analytics' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredOfferCard('analytics')}
+            onMouseLeave={() => setHoveredOfferCard(null)}
             onPress={() => setExpandedOffer(expandedOffer === 'analytics' ? null : 'analytics')}
           >
             <View style={styles.offerHeader}>
@@ -203,7 +321,12 @@ export default function Home() {
 
         <View style={styles.featuresGrid}>
           <TouchableOpacity
-            style={styles.featureCard}
+            style={[
+              styles.featureCard,
+              hoveredFeatureCard === 'ai' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredFeatureCard('ai')}
+            onMouseLeave={() => setHoveredFeatureCard(null)}
             onPress={() => setExpandedFeature(expandedFeature === 'ai' ? null : 'ai')}
           >
             <View style={styles.featureHeader}>
@@ -223,7 +346,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.featureCard}
+            style={[
+              styles.featureCard,
+              hoveredFeatureCard === 'feedback' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredFeatureCard('feedback')}
+            onMouseLeave={() => setHoveredFeatureCard(null)}
             onPress={() => setExpandedFeature(expandedFeature === 'feedback' ? null : 'feedback')}
           >
             <View style={styles.featureHeader}>
@@ -243,7 +371,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.featureCard}
+            style={[
+              styles.featureCard,
+              hoveredFeatureCard === 'team' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredFeatureCard('team')}
+            onMouseLeave={() => setHoveredFeatureCard(null)}
             onPress={() => setExpandedFeature(expandedFeature === 'team' ? null : 'team')}
           >
             <View style={styles.featureHeader}>
@@ -263,7 +396,12 @@ export default function Home() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.featureCard}
+            style={[
+              styles.featureCard,
+              hoveredFeatureCard === 'certification' && styles.cardHover,
+            ]}
+            onMouseEnter={() => setHoveredFeatureCard('certification')}
+            onMouseLeave={() => setHoveredFeatureCard(null)}
             onPress={() => setExpandedFeature(expandedFeature === 'certification' ? null : 'certification')}
           >
             <View style={styles.featureHeader}>
@@ -340,7 +478,8 @@ export default function Home() {
         </Text>
         <TouchableOpacity
           onPress={() => navigation.navigate('SignUp')}
-          style={styles.ctaButton}
+          style={[styles.ctaButton, ctaHovered && styles.ctaButtonHover]}
+          {...ctaHoverHandlers}
         >
           <Text style={styles.ctaButtonText}>Get Started</Text>
           <ArrowRight size={20} color="#fff" style={{ marginLeft: 8 }} />
@@ -390,9 +529,12 @@ const getStyles = (isDark) => StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 24,
-    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? '#334155' : '#e5e7eb',
+    borderBottomColor: isDark ? '#1e293b' : '#e5e7eb',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
   },
   headerContent: {
     flexDirection: 'row',
@@ -417,10 +559,14 @@ const getStyles = (isDark) => StyleSheet.create({
     color: isDark ? '#ffffff' : '#111827',
   },
   signUpButton: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 20,
     backgroundColor: '#2563eb',
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
   },
   signUpButtonText: {
     color: '#ffffff',
@@ -429,14 +575,50 @@ const getStyles = (isDark) => StyleSheet.create({
   },
   hero: {
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 100,
-    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+    paddingTop: 90,
+    paddingBottom: 120,
+    backgroundColor: isDark ? '#020617' : '#f0f6ff',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroBackdrop: {
+    position: 'absolute',
+    top: -200,
+    left: -200,
+    width: 600,
+    height: 600,
+    borderRadius: 300,
+    backgroundColor: '#2563eb',
+    opacity: 0.08,
+  },
+  heroGlow: {
+    position: 'absolute',
+    bottom: -150,
+    right: -50,
+    width: 320,
+    height: 320,
+    borderRadius: 320,
+    backgroundColor: '#22d3ee',
   },
   heroContent: {
-    maxWidth: 800,
+    maxWidth: 1200,
     alignSelf: 'center',
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 32,
+  },
+  heroTextColumn: {
+    flex: 1,
+    zIndex: 2,
+  },
+  heroEyebrow: {
+    color: '#38bdf8',
+    textTransform: 'uppercase',
+    letterSpacing: 3,
+    fontSize: 14,
+    marginBottom: 16,
+    fontWeight: '700',
   },
   heroTitle: {
     fontSize: 56,
@@ -444,7 +626,7 @@ const getStyles = (isDark) => StyleSheet.create({
     color: isDark ? '#ffffff' : '#111827',
     lineHeight: 64,
     marginBottom: 24,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   heroTitleAccent: {
     color: '#2563eb',
@@ -453,12 +635,12 @@ const getStyles = (isDark) => StyleSheet.create({
     fontSize: 20,
     color: isDark ? '#cbd5e1' : '#4b5563',
     lineHeight: 30,
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 40,
   },
   heroButtons: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     marginBottom: 32,
     flexWrap: 'wrap',
   },
@@ -490,6 +672,14 @@ const getStyles = (isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: isDark ? '#334155' : '#e5e7eb',
   },
+  secondaryButtonHover: {
+    transform: [{ translateY: -3 }],
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+  },
   secondaryButtonText: {
     color: isDark ? '#ffffff' : '#2563eb',
     fontSize: 16,
@@ -498,7 +688,7 @@ const getStyles = (isDark) => StyleSheet.create({
   },
   trustIndicators: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     flexWrap: 'wrap',
   },
   trustItem: {
@@ -508,6 +698,100 @@ const getStyles = (isDark) => StyleSheet.create({
   trustText: {
     color: isDark ? '#94a3b8' : '#6b7280',
     fontSize: 14,
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 32,
+    gap: 16,
+  },
+  heroStatCard: {
+    backgroundColor: isDark ? '#0f172a' : '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    minWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: isDark ? 0.4 : 0.1,
+    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: isDark ? '#1e293b' : '#e5e7eb',
+  },
+  heroStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: isDark ? '#e0f2fe' : '#0f172a',
+  },
+  heroStatLabel: {
+    fontSize: 14,
+    color: isDark ? '#94a3b8' : '#475569',
+    marginTop: 4,
+  },
+  heroVisual: {
+    flex: 1,
+    maxWidth: 480,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 25 },
+    shadowOpacity: 0.35,
+    shadowRadius: 40,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(37,99,235,0.1)',
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: 520,
+    borderRadius: 28,
+  },
+  heroImageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+  },
+  heroPulse: {
+    position: 'absolute',
+    inset: 0,
+    borderWidth: 2,
+    borderColor: 'rgba(59,130,246,0.4)',
+    borderRadius: 28,
+  },
+  heroGallery: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    flexWrap: 'wrap',
+    gap: 16,
+    marginTop: -60,
+    marginBottom: 40,
+  },
+  galleryCard: {
+    flexGrow: 1,
+    flexBasis: '32%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    minHeight: 140,
+    maxHeight: 160,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+  },
+  galleryOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(15,23,42,0.35)',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  galleryText: {
+    color: '#fff',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   offerSection: {
     paddingHorizontal: 24,
@@ -541,6 +825,13 @@ const getStyles = (isDark) => StyleSheet.create({
     borderWidth: 1,
     borderColor: isDark ? '#334155' : '#e5e7eb',
     marginBottom: 16,
+  },
+  cardHover: {
+    transform: [{ translateY: -4 }],
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.2,
+    shadowRadius: 25,
   },
   offerHeader: {
     flexDirection: 'row',
@@ -703,6 +994,14 @@ const getStyles = (isDark) => StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+  },
+  ctaButtonHover: {
+    transform: [{ translateY: -4 }],
+    backgroundColor: '#dbeafe',
   },
   ctaButtonText: {
     color: '#2563eb',
@@ -737,5 +1036,11 @@ const getStyles = (isDark) => StyleSheet.create({
   footerText: {
     color: '#6b7280',
     fontSize: 12,
+  },
+  buttonHoverElevated: {
+    transform: [{ translateY: -4 }],
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
   },
 });

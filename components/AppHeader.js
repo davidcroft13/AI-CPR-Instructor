@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
@@ -9,6 +9,7 @@ export default function AppHeader() {
   const route = useRoute();
   const { isDark, themePreference, toggleTheme } = useTheme();
   const styles = getStyles(isDark);
+  const [hoveredNav, setHoveredNav] = useState(null);
   
   const currentRoute = route.name;
 
@@ -32,7 +33,13 @@ export default function AppHeader() {
               <TouchableOpacity
                 key={item.route}
                 onPress={() => navigation.navigate(item.route)}
-                style={[styles.navItem, isActive && styles.navItemActive]}
+                style={[
+                  styles.navItem,
+                  isActive && styles.navItemActive,
+                  hoveredNav === item.route && styles.navItemHover,
+                ]}
+                onMouseEnter={() => setHoveredNav(item.route)}
+                onMouseLeave={() => setHoveredNav(null)}
               >
                 <Icon 
                   size={20} 
@@ -108,6 +115,13 @@ const getStyles = (isDark) => StyleSheet.create({
   },
   navItemActive: {
     backgroundColor: isDark ? '#0f172a' : '#eff6ff',
+  },
+  navItemHover: {
+    transform: [{ translateY: -3 }],
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
   navText: {
     fontSize: 15,

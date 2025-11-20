@@ -1,11 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native';
+  const heroGlowStyle = {
+    opacity: heroWave.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.65],
+    }),
+    transform: [
+      {
+        translateY: heroWave.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -15],
+        }),
+      },
+    ],
+  };
+
+  const statCardTransforms = statAnimations.map((anim) => ({
+    opacity: anim,
+    transform: [
+      {
+        translateY: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [20, 0],
+        }),
+      },
+      {
+        scale: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.95, 1],
+        }),
+      },
+    ],
+  }));
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import AppHeader from '../components/AppHeader';
-import { Trophy, BookOpen, TrendingUp, Users } from 'lucide-react-native';
+import { Trophy, BookOpen, TrendingUp, Users, ArrowRight } from 'lucide-react-native';
+import { useHover } from '../hooks/useHover';
 
 export default function Dashboard() {
   const navigation = useNavigation();
@@ -21,6 +54,41 @@ export default function Dashboard() {
   const [isTeamView, setIsTeamView] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userData, setUserData] = useState(null);
+  const heroWave = useRef(new Animated.Value(0)).current;
+  const statAnimations = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+  const [heroButtonHovered, heroButtonHoverHandlers] = useHover();
+  const [browseHovered, browseHoverHandlers] = useHover();
+  const [teamToggleHovered, teamToggleHoverHandlers] = useHover();
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(heroWave, {
+        toValue: 1,
+        duration: 5000,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [heroWave]);
+
+  useEffect(() => {
+    statAnimations.forEach((anim) => anim.setValue(0));
+    Animated.stagger(
+      150,
+      statAnimations.map((anim) =>
+        Animated.spring(anim, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 6,
+          tension: 40,
+        })
+      )
+    ).start();
+  }, [stats.averageScore, stats.lessonsCompleted, stats.totalSessions]);
 
   useEffect(() => {
     loadDashboardData();
@@ -103,9 +171,49 @@ export default function Dashboard() {
             </Text>
           </View>
 
+          <View style={styles.dashboardHero}>
+            <Animated.View style={[styles.dashboardHeroGlow, heroGlowStyle]} />
+            <View style={styles.dashboardHeroContent}>
+              <View style={styles.dashboardHeroText}>
+                <Text style={styles.heroLabel}>Live Practice Mode</Text>
+                <Text style={styles.heroHeadline}>
+                  Ready for your next immersive CPR scenario?
+                </Text>
+                <Text style={styles.heroDescription}>
+                  Continue exactly where you left off and keep your streak alive. Each lesson adapts to your voice responses in real time.
+                </Text>
+                <View style={styles.heroChips}>
+                  <View style={styles.heroChip}>
+                    <Text style={styles.heroChipValue}>+12%</Text>
+                    <Text style={styles.heroChipLabel}>Skill growth</Text>
+                  </View>
+                  <View style={styles.heroChip}>
+                    <Text style={styles.heroChipValue}>4 lessons</Text>
+                    <Text style={styles.heroChipLabel}>In progress</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Lessons')}
+                  style={[styles.heroActionButton, heroButtonHovered && styles.hoverLift]}
+                  {...heroButtonHoverHandlers}
+                >
+                  <Text style={styles.heroActionText}>Resume training</Text>
+                  <ArrowRight size={18} color="#fff" style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.dashboardHeroVisual}>
+                <Image
+                  source={{ uri: 'https://images.unsplash.com/photo-1504439468489-c8920d796a29?auto=format&fit=crop&w=900&q=80' }}
+                  style={styles.dashboardHeroImage}
+                />
+                <View style={styles.dashboardHeroOverlay} />
+              </View>
+            </View>
+          </View>
+
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCardWrapper}>
+          <Animated.View style={[styles.statCardWrapper, statCardTransforms[0]]}>
             <View style={styles.statCard}>
               <View style={styles.statCardContent}>
                 <Trophy size={24} color="#2563eb" />
@@ -115,9 +223,9 @@ export default function Dashboard() {
               </View>
               <Text style={styles.statLabel}>Average Score</Text>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.statCardWrapper}>
+          <Animated.View style={[styles.statCardWrapper, statCardTransforms[1]]}>
             <View style={styles.statCard}>
               <View style={styles.statCardContent}>
                 <BookOpen size={24} color="#2563eb" />
@@ -127,9 +235,9 @@ export default function Dashboard() {
               </View>
               <Text style={styles.statLabel}>Lessons Completed</Text>
             </View>
-          </View>
+          </Animated.View>
 
-          <View style={styles.statCardWrapper}>
+          <Animated.View style={[styles.statCardWrapper, statCardTransforms[2]]}>
             <View style={styles.statCard}>
               <View style={styles.statCardContent}>
                 <TrendingUp size={24} color="#2563eb" />
@@ -139,14 +247,15 @@ export default function Dashboard() {
               </View>
               <Text style={styles.statLabel}>Total Sessions</Text>
             </View>
-          </View>
+          </Animated.View>
         </View>
 
         {/* Team View Toggle */}
         {userData?.is_team_owner && (
           <TouchableOpacity
             onPress={() => setIsTeamView(!isTeamView)}
-            style={styles.teamToggleButton}
+            style={[styles.teamToggleButton, teamToggleHovered && styles.cardHoverLift]}
+            {...teamToggleHoverHandlers}
           >
             <View style={styles.teamToggleContent}>
               <Users size={20} color="#2563eb" />
@@ -177,24 +286,42 @@ export default function Dashboard() {
                       )
                     : 0;
                 const completedLessons = new Set(memberResults.map((r) => r.lesson_id)).size;
+                const progressWidth = Math.min(Math.max(avgScore, 0), 100);
+                const initials =
+                  member?.name
+                    ? member.name
+                        .split(' ')
+                        .map((part) => part[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()
+                    : (member.email || '?').slice(0, 2).toUpperCase();
                 return (
                   <View
                     key={member.id}
                     style={styles.teamMemberItem}
                   >
-                    <View style={styles.teamMemberInfo}>
-                      <Text style={styles.teamMemberName}>
-                        {member.name}
-                      </Text>
-                      <Text style={styles.teamMemberEmail}>{member.email}</Text>
-                      <Text style={styles.teamMemberStats}>
-                        {completedLessons} lesson{completedLessons !== 1 ? 's' : ''} completed
-                      </Text>
+                    <View style={styles.teamMemberLeft}>
+                      <View style={styles.teamMemberAvatar}>
+                        <Text style={styles.teamMemberInitial}>{initials}</Text>
+                      </View>
+                      <View style={styles.teamMemberInfo}>
+                        <Text style={styles.teamMemberName}>
+                          {member.name}
+                        </Text>
+                        <Text style={styles.teamMemberEmail}>{member.email}</Text>
+                        <Text style={styles.teamMemberStats}>
+                          {completedLessons} lesson{completedLessons !== 1 ? 's' : ''} completed
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.teamMemberScore}>
                       <Text style={styles.teamMemberScoreText}>
                         {avgScore}%
                       </Text>
+                      <View style={styles.teamProgressBar}>
+                        <View style={[styles.teamProgressFill, { width: `${progressWidth}%` }]} />
+                      </View>
                     </View>
                   </View>
                 );
@@ -206,7 +333,8 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <TouchableOpacity
           onPress={() => navigation.navigate('Lessons')}
-          style={styles.browseButton}
+          style={[styles.browseButton, browseHovered && styles.hoverLift]}
+          {...browseHoverHandlers}
         >
           <Text style={styles.browseButtonText}>
             Browse Lessons
@@ -249,15 +377,120 @@ const getStyles = (isDark) => StyleSheet.create({
     color: isDark ? '#cbd5e1' : '#4b5563',
     fontWeight: '500',
   },
+  dashboardHero: {
+    backgroundColor: isDark ? '#0f172a' : '#eef2ff',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: isDark ? '#1f2a44' : '#c7d2fe',
+    overflow: 'hidden',
+  },
+  dashboardHeroGlow: {
+    position: 'absolute',
+    right: 40,
+    top: 20,
+    width: 200,
+    height: 200,
+    borderRadius: 200,
+    backgroundColor: '#60a5fa',
+    opacity: 0.4,
+  },
+  dashboardHeroContent: {
+    flexDirection: 'row',
+    gap: 24,
+    alignItems: 'center',
+  },
+  dashboardHeroText: {
+    flex: 1,
+  },
+  heroLabel: {
+    color: '#38bdf8',
+    fontWeight: '600',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  heroHeadline: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: isDark ? '#f8fafc' : '#0f172a',
+    marginBottom: 12,
+  },
+  heroDescription: {
+    fontSize: 16,
+    color: isDark ? '#94a3b8' : '#475569',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  heroChips: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  heroChip: {
+    backgroundColor: isDark ? '#172554' : '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: isDark ? '#1e3a8a' : '#e0e7ff',
+  },
+  heroChipValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: isDark ? '#c7d2fe' : '#1d4ed8',
+  },
+  heroChipLabel: {
+    fontSize: 12,
+    color: isDark ? '#94a3b8' : '#6b7280',
+  },
+  heroActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+  },
+  heroActionText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dashboardHeroVisual: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.2,
+    shadowRadius: 25,
+  },
+  dashboardHeroImage: {
+    width: '100%',
+    height: 260,
+  },
+  dashboardHeroOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(15,23,42,0.35)',
+  },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -8,
+    marginHorizontal: -12,
     marginBottom: 24,
   },
   statCardWrapper: {
-    width: '50%',
-    paddingHorizontal: 8,
+    width: '33.33%',
+    paddingHorizontal: 12,
     marginBottom: 16,
   },
   statCard: {
@@ -295,6 +528,12 @@ const getStyles = (isDark) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: isDark ? '#334155' : '#c7d2fe',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: isDark ? 0.3 : 0.12,
+    shadowRadius: 16,
   },
   teamToggleContent: {
     flexDirection: 'row',
@@ -331,6 +570,24 @@ const getStyles = (isDark) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: isDark ? '#334155' : '#e5e7eb',
   },
+  teamMemberLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  teamMemberAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: isDark ? '#1d4ed8' : '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  teamMemberInitial: {
+    color: isDark ? '#e0f2fe' : '#1e3a8a',
+    fontWeight: '700',
+  },
   teamMemberInfo: {
     flex: 1,
   },
@@ -351,11 +608,24 @@ const getStyles = (isDark) => StyleSheet.create({
   },
   teamMemberScore: {
     alignItems: 'flex-end',
+    minWidth: 140,
   },
   teamMemberScoreText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2563eb',
+  },
+  teamProgressBar: {
+    width: '100%',
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: isDark ? '#0f172a' : '#e2e8f0',
+    marginTop: 8,
+  },
+  teamProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#22d3ee',
   },
   browseButton: {
     backgroundColor: '#2563eb',
@@ -363,10 +633,28 @@ const getStyles = (isDark) => StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     alignItems: 'center',
+    shadowColor: '#1e40af',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
   },
   browseButtonText: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  hoverLift: {
+    transform: [{ translateY: -4 }],
+    shadowColor: '#1d4ed8',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
+  },
+  cardHoverLift: {
+    transform: [{ translateY: -4 }],
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 25,
   },
 });
