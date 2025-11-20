@@ -1,36 +1,4 @@
-  const heroGlowStyle = {
-    opacity: heroWave.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 0.65],
-    }),
-    transform: [
-      {
-        translateY: heroWave.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -15],
-        }),
-      },
-    ],
-  };
-
-  const statCardTransforms = statAnimations.map((anim) => ({
-    opacity: anim,
-    transform: [
-      {
-        translateY: anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [20, 0],
-        }),
-      },
-      {
-        scale: anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.95, 1],
-        }),
-      },
-    ],
-  }));
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +31,43 @@ export default function Dashboard() {
   const [heroButtonHovered, heroButtonHoverHandlers] = useHover();
   const [browseHovered, browseHoverHandlers] = useHover();
   const [teamToggleHovered, teamToggleHoverHandlers] = useHover();
+
+  const heroGlowStyle = useMemo(() => ({
+    opacity: heroWave.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.65],
+    }),
+    transform: [
+      {
+        translateY: heroWave.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -15],
+        }),
+      },
+    ],
+  }), [heroWave]);
+
+  const statCardTransforms = useMemo(
+    () =>
+      statAnimations.map((anim) => ({
+        opacity: anim,
+        transform: [
+          {
+            translateY: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [20, 0],
+            }),
+          },
+          {
+            scale: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.95, 1],
+            }),
+          },
+        ],
+      })),
+    [statAnimations]
+  );
 
   useEffect(() => {
     Animated.loop(
